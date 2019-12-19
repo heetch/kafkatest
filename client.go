@@ -61,7 +61,7 @@ func New() (*Kafka, error) {
 	}
 	admin, err := sarama.NewClusterAdmin(addrs, client.Config())
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Kafka cluster: %v", err)
+		return nil, fmt.Errorf("cannot connect to Kafka cluster at %q: %v", addrs, err)
 	}
 	client.admin = admin
 	return client, nil
