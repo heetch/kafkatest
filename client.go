@@ -3,14 +3,18 @@
 package kafkatest
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Shopify/sarama"
+	"golang.org/x/net/proxy"
 	"gopkg.in/retry.v1"
 )
 
@@ -110,6 +114,25 @@ func (k *Kafka) Config() *sarama.Config {
 	return cfg
 }
 
+type logDialer struct{}
+
+func (d logDialer) Dial(netw string, addr string) (net.Conn, error) {
+	return d.DialContext(context.Background(), netw, addr)
+}
+
+func (logDialer) DialContext(ctx context.Context, netw, addr string) (net.Conn, error) {
+	log.Printf("connecting to %s!%s", netw, addr)
+	c, err := net.Dial(netw, addr)
+	if err != nil {
+		log.Printf("failed: %v", err)
+	} else {
+		log.Printf("ok")
+	}
+	return c, err
+}
+
+var _ = proxy.ContextDialer(logDialer{})
+
 // InitConfig is similar to Config, except that instead of
 // returning a new configuration, it configures an existing
 // one.
@@ -119,6 +142,8 @@ func (k *Kafka) InitConfig(cfg *sarama.Config) {
 		cfg.Version = sarama.V1_0_0_0
 	}
 	cfg.Net.TLS.Enable = k.useTLS
+	cfg.Net.Proxy.Enable = true
+	cfg.Net.Proxy.Dialer = logDialer{}
 	if k.saslUser != "" {
 		cfg.Net.SASL.Enable = true
 		cfg.Net.SASL.User = k.saslUser
