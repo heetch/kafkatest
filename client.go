@@ -8,8 +8,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"gopkg.in/retry.v1"
 )
 
 var ErrDisabled = fmt.Errorf("kafka tests are disabled")
@@ -35,6 +37,10 @@ var ErrDisabled = fmt.Errorf("kafka tests are disabled")
 //		A boolean as parsed by strconv.ParseBool. If this
 //		is true, a secure TLS connection will be used.
 //
+//	- $KAFKA_TIMEOUT
+//		The maximum duration to wait when trying to connect
+//		to Kakfa. Defaults to "30s".
+//
 // The returned Kafka instance must be closed after use.
 func New() (*Kafka, error) {
 	disabled, err := boolVar("KAFKA_DISABLE")
@@ -59,11 +65,29 @@ func New() (*Kafka, error) {
 		saslUser:     os.Getenv("KAFKA_USERNAME"),
 		saslPassword: os.Getenv("KAFKA_PASSWORD"),
 	}
-	admin, err := sarama.NewClusterAdmin(addrs, client.Config())
-	if err != nil {
-		return nil, fmt.Errorf("cannot connect to Kafka cluster at %q: %v", addrs, err)
+	// The cluster might not be available immediately, so try
+	// for a while before giving up.
+	retryLimit := 30 * time.Second
+	if limit := os.Getenv("KAFKA_TIMEOUT"); limit != "" {
+		retryLimit, err = time.ParseDuration(limit)
+		if err != nil {
+			return nil, fmt.Errorf("bad value for KAFKA_TIMEOUT: %v", err)
+		}
 	}
-	client.admin = admin
+	retryStrategy := retry.LimitTime(retryLimit, retry.Exponential{
+		Initial:  time.Millisecond,
+		MaxDelay: time.Second,
+	})
+	for a := retry.Start(retryStrategy, nil); a.Next(); {
+		admin, err := sarama.NewClusterAdmin(addrs, client.Config())
+		if err == nil {
+			client.admin = admin
+			break
+		}
+		if !a.Next() {
+			return nil, fmt.Errorf("cannot connect to Kafka cluster at %q after %v: %v", addrs, retryLimit, err)
+		}
+	}
 	return client, nil
 }
 
