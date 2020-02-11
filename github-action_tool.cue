@@ -12,7 +12,18 @@ import (
 //	cue generateworkflow
 
 Workflow :: workflow
-Workflow :: Services :: ["kafka"]
+Workflow :: Services :: {
+	kafka: true
+	zookeeper: true
+}
+
+Workflow :: RunTest :: #"""
+	nc -v -z localhost 9092
+	export KAFKA_ADDRS=localhost:9092
+	go test ./...
+	#go test -mod=vendor ./...
+
+	"""#
 
 command: generateworkflow: {
 	task: write: file.Create & {

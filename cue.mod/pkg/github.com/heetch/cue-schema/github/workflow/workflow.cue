@@ -8,8 +8,6 @@ package workflow
 
 // TODO cross-verify against https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
 
-import "regexp"
-
 // name holds the name of your workflow. GitHub displays the
 // names of your workflows on your repository's actions page. If
 // you omit this field, GitHub sets the name to the workflow's
@@ -74,7 +72,7 @@ JobStep :: {
 		"sh" |
 		"cmd" |
 		"powershell" |
-		regexp.Match(#"\{0\}"#)
+		=~#"\{0\}"#
 
 	// with holds a map of the input parameters defined by the action.
 	// Each input parameter is a key/value pair. Input parameters are

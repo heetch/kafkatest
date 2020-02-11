@@ -5,6 +5,8 @@ package kafkatest
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -54,6 +56,8 @@ func New() (*Kafka, error) {
 	if addrsStr == "" {
 		addrsStr = "localhost:9092"
 	}
+	_, err = net.Dial("tcp", addrsStr)
+	log.Printf("net.Dial %q: %v", addrsStr, err)
 	addrs := strings.Split(addrsStr, ",")
 	useTLS, err := boolVar("KAFKA_USE_TLS")
 	if err != nil {
@@ -84,7 +88,7 @@ func New() (*Kafka, error) {
 			client.admin = admin
 			break
 		}
-		if !a.Next() {
+		if !a.More() {
 			return nil, fmt.Errorf("cannot connect to Kafka cluster at %q after %v: %v", addrs, retryLimit, err)
 		}
 	}

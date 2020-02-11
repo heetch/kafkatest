@@ -1,6 +1,7 @@
 package kafkatest_test
 
 import (
+	"log"
 	"testing"
 	"time"
 
@@ -11,9 +12,13 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	//sarama.Logger = log.New(os.Stderr, "[Sarama] ", log.LstdFlags)
+
 	c := qt.New(t)
 	k, err := kafkatest.New()
 	c.Assert(err, qt.Equals, nil)
+
+	log.Printf("************** succeeded in making initial connection")
 
 	// Produce a message to a new topic.
 	cfg := k.Config()
@@ -21,7 +26,7 @@ func TestNew(t *testing.T) {
 	cfg.Producer.Return.Errors = true
 
 	producer, err := sarama.NewSyncProducer(k.Addrs(), cfg)
-	c.Assert(err, qt.Equals, nil)
+	c.Assert(err, qt.Equals, nil, qt.Commentf("addrs: %q", k.Addrs()))
 	defer producer.Close()
 	topic := k.NewTopic()
 

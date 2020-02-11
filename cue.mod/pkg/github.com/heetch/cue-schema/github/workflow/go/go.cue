@@ -6,6 +6,8 @@
 // for easy modification of some parameters.
 package workflow
 
+import "list"
+
 on:   _ | *["push", "pull_request"]
 name: _ | *"Test"
 jobs: test: {
@@ -14,34 +16,35 @@ jobs: test: {
 		platform:     _ | *[ "\(p)-latest" for p in Platforms ]
 	}
 	"runs-on": "${{ matrix.platform }}"
-	steps: [{
+	steps: list.FlattenN([{
 		name: "Install Go"
 		uses: "actions/setup-go@v1"
 		with: "go-version": "${{ matrix.go-version }}"
-	}, {
+	},
+//	{
+//		name: "Module cache"
+//		uses: "actions/cache@v1"
+//		with: {
+//			path:           "~/go/pkg/mod"
+//			key:            "${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}"
+//			"restore-keys": "${{ runner.os }}-go-"
+//		}
+//	},
+	{
 		name: "Checkout code"
 		uses: "actions/checkout@v1"
-	}, _ | *{
+	},
+	// Include setup steps for any services that require them,
+	[ServiceConfig[name].SetupStep for name, enabled in Services if enabled && ServiceConfig[name].SetupStep != null],
+	_ | *{
 		name: "Test"
 		run:  RunTest
-	}]
+	}], 1)
 }
 
 // Include all named services.
-for name in Services {
-	jobs: test: services: "\(name)": ServiceConfig[name]
-}
-
-jobs: test: services: kafka?: _ | *{
-	image: "confluentinc/cp-kafka:latest"
-	env: {
-		KAFKA_BROKER_ID:                        "1"
-		KAFKA_ZOOKEEPER_CONNECT:                "zookeeper:2181"
-		KAFKA_ADVERTISED_LISTENERS:             "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-		KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-		KAFKA_INTER_BROKER_LISTENER_NAME:       "PLAINTEXT"
-		KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
-	}
+for name, enabled in Services if enabled {
+	jobs: test: services: "\(name)": ServiceConfig[name].Service
 }
 
 // Platforms configures what platforms to run the tests on.
@@ -57,33 +60,75 @@ RunTest :: *"go test ./..." | string
 // Service configures which services to make available.
 // The configuration the service with name N is taken from
 // ServiceConfig[N]
-Services :: [... string]
+Services :: [_]: bool
 
 // ServiceConfig holds the default configuration for services that
 // can be started by naming them in Services.
-ServiceConfig :: [_]: _
+ServiceConfig :: [_]: {
+	// Service holds the contents of `jobs: test: services: "\(serviceName)"`
+	"Service": Service
+
+	// SetupStep optionally holds a step to run to set up the service
+	// before the main workflow action is run (for example to wait
+	// for the service to become ready).
+	SetupStep: JobStep | *null
+}
+
+// Kafka requires zookeeper too.
+if Services["kafka"] != _|_ {
+	Services :: zookeeper: true
+}
 
 ServiceConfig :: kafka: {
-	image: "confluentinc/cp-kafka:latest"
-	env: {
-		KAFKA_BROKER_ID:                        "1"
-		KAFKA_ZOOKEEPER_CONNECT:                "zookeeper:2181"
-		KAFKA_ADVERTISED_LISTENERS:             "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-		KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-		KAFKA_INTER_BROKER_LISTENER_NAME:       "PLAINTEXT"
-		KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+	Service: {
+		image: "confluentinc/cp-kafka:latest"
+		ports: ["9092:9092"]
+		env: {
+			KAFKA_BROKER_ID:                        "1"
+			KAFKA_ZOOKEEPER_CONNECT:                "zookeeper:2181"
+			KAFKA_ADVERTISED_LISTENERS:             "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+			KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+			KAFKA_INTER_BROKER_LISTENER_NAME:       "PLAINTEXT"
+			KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+		}
+	}
+	SetupStep: {
+		name: "Wait for Kafka"
+		"timeout-minutes": 1
+		shell: "bash"
+		run: #"""
+			waitfor() {
+				while ! nc -v -z $1 $2
+				do sleep 1
+				done
+			}
+			waitfor localhost 9092
+			waitfor localhost 2181
+
+			"""#
 	}
 }
 
-ServiceConfig :: postgres: {
-	env: {
-		POSTGRES_DB:       "postgres"
-		POSTGRES_PASSWORD: "postgres"
-		POSTGRES_USER:     "postgres"
+ServiceConfig :: zookeeper: {
+	Service: {
+		image: "confluentinc/cp-zookeeper:latest"
+		ports: ["2181:2181"]
+		env: {
+			ZOOKEEPER_CLIENT_PORT: "2181"
+			ZOOKEEPER_TICK_TIME: "2000"
+		}
 	}
-	image:   "postgres:10.8"
-	options: "--health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5"
-	ports: [
-		"5432:5432",
-	]
+}
+
+ServiceConfig :: postgres: _ |*{
+	Service: {
+		image:   "postgres:10.8"
+		ports: ["5432:5432"]
+		env: {
+			POSTGRES_DB:       "postgres"
+			POSTGRES_PASSWORD: "postgres"
+			POSTGRES_USER:     "postgres"
+		}
+		options: "--health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5"
+	}
 }
