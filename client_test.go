@@ -2,6 +2,7 @@ package kafkatest_test
 
 import (
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	//sarama.Logger = log.New(os.Stderr, "[Sarama] ", log.LstdFlags)
+	sarama.Logger = log.New(os.Stderr, "[Sarama] ", log.LstdFlags)
 
 	c := qt.New(t)
 	k, err := kafkatest.New()

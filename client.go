@@ -57,7 +57,7 @@ func New() (*Kafka, error) {
 		addrsStr = "localhost:9092"
 	}
 	_, err = net.Dial("tcp", addrsStr)
-	log.Printf("net.Dial %q: %v", addrsStr, err)
+	log.Printf("in kafkatest: net.Dial %q: %v", addrsStr, err)
 	addrs := strings.Split(addrsStr, ",")
 	useTLS, err := boolVar("KAFKA_USE_TLS")
 	if err != nil {
@@ -119,7 +119,6 @@ func (k *Kafka) Config() *sarama.Config {
 // one.
 func (k *Kafka) InitConfig(cfg *sarama.Config) {
 	if cfg.Version == sarama.MinVersion {
-		// R
 		cfg.Version = sarama.V1_0_0_0
 	}
 	cfg.Net.TLS.Enable = k.useTLS

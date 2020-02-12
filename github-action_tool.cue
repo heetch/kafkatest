@@ -17,13 +17,13 @@ Workflow :: Services :: {
 	zookeeper: true
 }
 
-Workflow :: RunTest :: #"""
-	nc -v -z localhost 9092
-	export KAFKA_ADDRS=localhost:9092
-	go test ./...
-	#go test -mod=vendor ./...
+Workflow :: RunTest :: """
+	nc -v -z localhost \(Workflow.KafkaPort)
+	export KAFKA_ADDRS=localhost:\(Workflow.KafkaPort)
+	#go test ./...
+	go test -mod=vendor ./...
 
-	"""#
+	"""
 
 command: generateworkflow: {
 	task: write: file.Create & {

@@ -79,15 +79,19 @@ if Services["kafka"] != _|_ {
 	Services :: zookeeper: true
 }
 
+KafkaPort :: 9092
+
 ServiceConfig :: kafka: {
 	Service: {
 		image: "confluentinc/cp-kafka:latest"
-		ports: ["9092:9092"]
+		ports: ["\(KafkaPort):\(KafkaPort)"]
 		env: {
+			// See https://docs.confluent.io/current/kafka/multi-node.html
+			// for information on these settings.
 			KAFKA_BROKER_ID:                        "1"
 			KAFKA_ZOOKEEPER_CONNECT:                "zookeeper:2181"
-			KAFKA_ADVERTISED_LISTENERS:             "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-			KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+			KAFKA_ADVERTISED_LISTENERS:             "interbroker://kafka:29092,fromclient://localhost:\(KafkaPort)"
+			KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "interbroker:PLAINTEXT,fromclient:PLAINTEXT"
 			KAFKA_INTER_BROKER_LISTENER_NAME:       "PLAINTEXT"
 			KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
 		}
@@ -96,16 +100,16 @@ ServiceConfig :: kafka: {
 		name: "Wait for Kafka"
 		"timeout-minutes": 1
 		shell: "bash"
-		run: #"""
+		run: """
 			waitfor() {
 				while ! nc -v -z $1 $2
 				do sleep 1
 				done
 			}
-			waitfor localhost 9092
+			waitfor localhost \(KafkaPort)
 			waitfor localhost 2181
 
-			"""#
+			"""
 	}
 }
 

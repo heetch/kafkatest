@@ -5,10 +5,10 @@ jobs:
     services:
       kafka:
         env:
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+          KAFKA_ADVERTISED_LISTENERS: interbroker://kafka:29092,fromclient://localhost:9092
           KAFKA_BROKER_ID: "1"
           KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: interbroker:PLAINTEXT,fromclient:PLAINTEXT
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
           KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
         image: confluentinc/cp-kafka:latest
@@ -37,8 +37,8 @@ jobs:
       run: |
         nc -v -z localhost 9092
         export KAFKA_ADDRS=localhost:9092
-        go test ./...
-        #go test -mod=vendor ./...
+        #go test ./...
+        go test -mod=vendor ./...
     strategy:
       matrix:
         go-version:
