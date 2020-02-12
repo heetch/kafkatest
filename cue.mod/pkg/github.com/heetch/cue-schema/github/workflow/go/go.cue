@@ -87,13 +87,16 @@ ServiceConfig :: kafka: {
 		ports: ["\(KafkaPort):\(KafkaPort)"]
 		env: {
 			// See https://docs.confluent.io/current/kafka/multi-node.html
+			// and https://kafka.apache.org/documentation/#brokerconfigs
 			// for information on these settings.
 			KAFKA_BROKER_ID:                        "1"
 			KAFKA_ZOOKEEPER_CONNECT:                "zookeeper:2181"
+			KAFKA_ZOOKEEPER_CONNECTION_TIMEOUT_MS: "10000"
 			KAFKA_ADVERTISED_LISTENERS:             "interbroker://kafka:29092,fromclient://localhost:\(KafkaPort)"
 			KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   "interbroker:PLAINTEXT,fromclient:PLAINTEXT"
-			KAFKA_INTER_BROKER_LISTENER_NAME:       "PLAINTEXT"
+			KAFKA_INTER_BROKER_LISTENER_NAME:       "interbroker"
 			KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+			KAFKA_LOG4J_ROOT_LOGLEVEL: "DEBUG"
 		}
 	}
 	SetupStep: {
@@ -118,8 +121,10 @@ ServiceConfig :: zookeeper: {
 		image: "confluentinc/cp-zookeeper:latest"
 		ports: ["2181:2181"]
 		env: {
+			// See https://docs.confluent.io/current/installation/docker/config-reference.html
 			ZOOKEEPER_CLIENT_PORT: "2181"
 			ZOOKEEPER_TICK_TIME: "2000"
+			ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: "DEBUG"
 		}
 	}
 }

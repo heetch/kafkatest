@@ -18,9 +18,28 @@ Workflow :: Services :: {
 }
 
 Workflow :: RunTest :: """
-	nc -v -z localhost \(Workflow.KafkaPort)
+	echo ip address of kafka:
+	docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${{ job.services.kafka.id }}"
+	echo ip address of zookeeper:
+	docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${{ job.services.zookeeper.id }}"
+
+
+	while nc -v -z localhost \(Workflow.KafkaPort); do
+		echo ok so far
+		sleep 1
+	done
+	echo ------------- kafka logs
+	docker logs "${{ job.services.kafka.id }}"
+	echo --------------- end kafka logs
+	echo
+	echo ------------- zookeeper logs
+	docker logs "${{ job.services.zookeeper.id }}"
+	echo ---------------- end zookeeper logs
+	docker ps
+	exit 1
 	export KAFKA_ADDRS=localhost:\(Workflow.KafkaPort)
 	#go test ./...
+	go run dial.go $KAFKA_ADDRS
 	go test -mod=vendor ./...
 
 	"""
