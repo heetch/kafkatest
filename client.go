@@ -84,7 +84,7 @@ func New() (*Kafka, error) {
 			client.admin = admin
 			break
 		}
-		if !a.Next() {
+		if !a.More() {
 			return nil, fmt.Errorf("cannot connect to Kafka cluster at %q after %v: %v", addrs, retryLimit, err)
 		}
 	}
